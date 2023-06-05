@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas as pd
 import torch
-from augmentations import make_augmentation_pipe
 from lightning import LightningDataModule
+from sampling import make_sampler
 from torch.utils.data import DataLoader, Dataset
 
 
@@ -36,8 +35,6 @@ class Segmentation3D_DataModule(LightningDataModule):
     def __init__(self, config: dict) -> None:
         self.config = config
         self.dataset_path = self.config['data']['dataset_path']
-        self.augmentations = make_augmentation_pipe(prob=self.config['data']['augmentation_probability'])
-        # TODO: add fixed data split
 
     def setup(self, stage: str) -> None:
         match stage:
@@ -57,4 +54,26 @@ class Segmentation3D_DataModule(LightningDataModule):
                 )
 
     def train_dataloader(self):
-        return DataLoader(self.train)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.config['training']['batch_size'],
+            num_workers=self.config['training']['num_workers'],
+            pin_memory=True,
+            sampler=(None if not self.config['training']['sampler'] else make_sampler(self.train_dataset.metadata))
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.config['training']['batch_size'],
+            num_workers=self.config['training']['num_workers'],
+            pin_memory=True
+        )
+
+    def test_dataloader(self):
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.config['testing']['batch_size'],
+            num_workers=self.config['testing']['num_workers'],
+            pin_memory=True
+        )
